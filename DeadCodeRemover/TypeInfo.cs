@@ -1,9 +1,9 @@
-﻿using Microsoft.CodeAnalysis;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.CodeAnalysis;
 
 namespace DeadCodeRemover
 {
@@ -11,10 +11,7 @@ namespace DeadCodeRemover
     {
         public string FullName
         {
-            get
-            {
-                return $"{Symbol.ContainingNamespace}.{Symbol.Name}";
-            }
+            get { return $"{Symbol.ContainingNamespace}.{Symbol.Name}"; }
         }
         public Project ContainingProject { get; set; }
         public Document ContainingDocument { get; set; }

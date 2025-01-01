@@ -9,9 +9,10 @@ namespace ClassLibrary4Roslyn
     public sealed class ClassWithSelfReferences
     {
         private readonly string _name;
-        public ClassWithSelfReferences() : this("DefaultClass")
-        {
-        }
+
+        public ClassWithSelfReferences()
+            : this("DefaultClass") { }
+
         public ClassWithSelfReferences(string name)
         {
             _name = name;

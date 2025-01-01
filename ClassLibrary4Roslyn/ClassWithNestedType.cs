@@ -7,7 +7,7 @@ namespace ClassLibrary4Roslyn
         public enum NestedType
         {
             Type1,
-            Type2
+            Type2,
         }
 
         public static NestedType GetNestedType(string typeName)

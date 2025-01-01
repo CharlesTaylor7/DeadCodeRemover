@@ -8,9 +8,6 @@ namespace ClassLibrary4Roslyn
 {
     internal class StaticClass
     {
-        public static void StaticMethod()
-        {
-
-        }
+        public static void StaticMethod() { }
     }
 }

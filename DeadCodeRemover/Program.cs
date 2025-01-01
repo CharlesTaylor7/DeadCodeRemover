@@ -1,10 +1,9 @@
-﻿
+﻿using System.Globalization;
 using CommandLine;
 using CsvHelper;
 using Microsoft.Build.Locator;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.MSBuild;
-using System.Globalization;
 
 namespace DeadCodeRemover
 {
@@ -12,19 +11,24 @@ namespace DeadCodeRemover
     {
         [Option('s', "solution", Required = true, HelpText = "Solution file to be processed.")]
         public string Solution { get; set; }
+
         [Option('p', "project", Required = false, HelpText = "Project file to be processed.")]
         public string Project { get; set; }
+
         [Option(Default = false, HelpText = "Prints all messages to standard output.")]
         public bool Verbose { get; set; }
     }
+
     internal class Program
     {
         private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
         public static async Task Main(string[] args)
         {
             await Parser.Default.ParseArguments<Options>(args).WithParsedAsync(RunWithOptions);
             Console.ReadKey();
         }
+
         private static async Task RunWithOptions(Options opt)
         {
             var visualStudioInstances = MSBuildLocator.QueryVisualStudioInstances().ToArray();
@@ -36,7 +40,10 @@ namespace DeadCodeRemover
             {
                 workspace.WorkspaceFailed += (o, e) => Logger.Warn(e.Diagnostic.Message);
                 Logger.Info($"Loading solution {opt.Solution} into workspace.");
-                var solution = await workspace.OpenSolutionAsync(opt.Solution, new ConsoleProgressReporter());
+                var solution = await workspace.OpenSolutionAsync(
+                    opt.Solution,
+                    new ConsoleProgressReporter()
+                );
                 var typeBuilder = new TypeBuilder(Logger);
                 IEnumerable<TypeInfo> types;
                 if (opt.Project == null)
@@ -45,19 +52,31 @@ namespace DeadCodeRemover
                 }
                 else
                 {
-                    var project = solution.Projects.Where(p => p.FilePath == opt.Project).FirstOrDefault();
+                    var project = solution
+                        .Projects.Where(p => p.FilePath == opt.Project)
+                        .FirstOrDefault();
                     if (project == null)
                     {
-                        throw new ArgumentException($"Cannot find project {opt.Project} in solution,");
+                        throw new ArgumentException(
+                            $"Cannot find project {opt.Project} in solution,"
+                        );
                     }
-                    types = await typeBuilder.BuildTypes(solution, new List<Project>() { project }, knowTypes);
+                    types = await typeBuilder.BuildTypes(
+                        solution,
+                        new List<Project>() { project },
+                        knowTypes
+                    );
                 }
                 var deadTypeRemover = new DeadTypeRemover(Logger);
-                await deadTypeRemover.RemoveDeadTypes(workspace, types.Where(t => t.IsDead == true));
+                await deadTypeRemover.RemoveDeadTypes(
+                    workspace,
+                    types.Where(t => t.IsDead == true)
+                );
                 OutputResults(types);
                 Console.ReadKey();
             }
         }
+
         private static void OutputResults(IEnumerable<TypeInfo> types)
         {
             using (var writer = new StreamWriter($"DeadCodeResult_Roslyn.csv"))
@@ -84,7 +103,10 @@ namespace DeadCodeRemover
                 }
             }
         }
-        private static VisualStudioInstance SelectVisualStudioInstance(VisualStudioInstance[] visualStudioInstances)
+
+        private static VisualStudioInstance SelectVisualStudioInstance(
+            VisualStudioInstance[] visualStudioInstances
+        )
         {
             Logger.Info("Multiple installs of MSBuild detected please select one:");
             for (int i = 0; i < visualStudioInstances.Length; i++)
@@ -97,15 +119,18 @@ namespace DeadCodeRemover
             while (true)
             {
                 var userResponse = Console.ReadLine();
-                if (int.TryParse(userResponse, out int instanceNumber) &&
-                instanceNumber > 0 &&
-                instanceNumber <= visualStudioInstances.Length)
+                if (
+                    int.TryParse(userResponse, out int instanceNumber)
+                    && instanceNumber > 0
+                    && instanceNumber <= visualStudioInstances.Length
+                )
                 {
                     return visualStudioInstances[instanceNumber - 1];
                 }
                 Logger.Error("Input not accepted, try again.");
             }
         }
+
         private class ConsoleProgressReporter : IProgress<ProjectLoadProgress>
         {
             public void Report(ProjectLoadProgress loadProgress)
@@ -115,7 +140,9 @@ namespace DeadCodeRemover
                 {
                     projectDisplay += $" ({loadProgress.TargetFramework})";
                 }
-                Logger.Debug($"{loadProgress.Operation,-15} {loadProgress.ElapsedTime,-15:m\\:ss\\.fffffff} {projectDisplay}");
+                Logger.Debug(
+                    $"{loadProgress.Operation, -15} {loadProgress.ElapsedTime, -15:m\\:ss\\.fffffff} {projectDisplay}"
+                );
             }
         }
     }

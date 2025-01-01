@@ -1,21 +1,28 @@
-﻿using Microsoft.CodeAnalysis;
+﻿using System;
+using System.Collections.Generic;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.FindSymbols;
-using System;
-using System.Collections.Generic;
 
 namespace DeadCodeRemover
 {
     internal class TypeBuilder : ITypeBuilder
     {
         private readonly NLog.Logger _logger;
-        private readonly Dictionary<Project, Compilation> _compilations = new Dictionary<Project, Compilation>();
+        private readonly Dictionary<Project, Compilation> _compilations =
+            new Dictionary<Project, Compilation>();
+
         public TypeBuilder(NLog.Logger logger)
         {
             _logger = logger;
         }
-        public async Task<IEnumerable<TypeInfo>> BuildTypes(Solution solution, IEnumerable<Project> projects, IKnownTypesRepository knownTypes)
+
+        public async Task<IEnumerable<TypeInfo>> BuildTypes(
+            Solution solution,
+            IEnumerable<Project> projects,
+            IKnownTypesRepository knownTypes
+        )
         {
             List<TypeInfo> types = new List<TypeInfo>();
             foreach (var project in projects)
@@ -26,20 +33,30 @@ namespace DeadCodeRemover
             return types;
         }
 
-        private async Task<IEnumerable<TypeInfo>> BuildTypes(Solution solution, Project project, IKnownTypesRepository knownTypes)
+        private async Task<IEnumerable<TypeInfo>> BuildTypes(
+            Solution solution,
+            Project project,
+            IKnownTypesRepository knownTypes
+        )
         {
             List<TypeInfo> types = new List<TypeInfo>();
             _logger.Info($"Build types for project {project.Name}");
             foreach (var doc in project.Documents)
             {
                 var model = await doc.GetSemanticModelAsync();
-                var declarations = (await doc.GetSyntaxRootAsync()).DescendantNodes().Where(n => n is TypeDeclarationSyntax || n is EnumDeclarationSyntax);
+                var declarations = (await doc.GetSyntaxRootAsync())
+                    .DescendantNodes()
+                    .Where(n => n is TypeDeclarationSyntax || n is EnumDeclarationSyntax);
                 foreach (var declaration in declarations)
                 {
                     var lineSpan = declaration.GetLocation().GetMappedLineSpan();
                     int lines = lineSpan.EndLinePosition.Line - lineSpan.StartLinePosition.Line + 1;
                     var type = (INamedTypeSymbol)model.GetDeclaredSymbol(declaration);
-                    IEnumerable<ISymbol> typesUsingMe = await GetTypesUsingMe(solution, project, type);
+                    IEnumerable<ISymbol> typesUsingMe = await GetTypesUsingMe(
+                        solution,
+                        project,
+                        type
+                    );
                     var typeInfo = new TypeInfo()
                     {
                         Symbol = type,
@@ -49,7 +66,9 @@ namespace DeadCodeRemover
                         ContainingProject = project,
                         NumberOfLines = lines,
                     };
-                    _logger.Info($" Add type {typeInfo.FullName}, lines of code: {typeInfo.NumberOfLines}, {typesUsingMe.Count()} references.");
+                    _logger.Info(
+                        $" Add type {typeInfo.FullName}, lines of code: {typeInfo.NumberOfLines}, {typesUsingMe.Count()} references."
+                    );
                     types.Add(typeInfo);
                 }
             }
@@ -65,12 +84,19 @@ namespace DeadCodeRemover
             return _compilations[project];
         }
 
-        private async Task<IEnumerable<ISymbol>> GetTypesUsingMe(Solution solution, Project project, ISymbol type)
+        private async Task<IEnumerable<ISymbol>> GetTypesUsingMe(
+            Solution solution,
+            Project project,
+            ISymbol type
+        )
         {
             if (type.IsStatic)
             {
                 // Check if there are any extension methods
-                var extMethods = ((INamedTypeSymbol)type).GetMembers().Where(s => s.Kind == SymbolKind.Method).Where(m => ((IMethodSymbol)m).IsExtensionMethod);
+                var extMethods = ((INamedTypeSymbol)type)
+                    .GetMembers()
+                    .Where(s => s.Kind == SymbolKind.Method)
+                    .Where(m => ((IMethodSymbol)m).IsExtensionMethod);
                 if (extMethods.Any())
                 {
                     List<ISymbol> typesUsingMe = new List<ISymbol>();
@@ -83,7 +109,11 @@ namespace DeadCodeRemover
             }
             return await FilterSelfReferences(solution, type);
         }
-        private async Task<IEnumerable<ISymbol>> FilterSelfReferences(Solution solution, ISymbol type)
+
+        private async Task<IEnumerable<ISymbol>> FilterSelfReferences(
+            Solution solution,
+            ISymbol type
+        )
         {
             List<ISymbol> typesUsingMe = new List<ISymbol>();
             var typeRefs = await SymbolFinder.FindReferencesAsync(type, solution);
@@ -91,11 +121,15 @@ namespace DeadCodeRemover
             {
                 foreach (var loc in typeRef.Locations)
                 {
-                    var node = loc.Location.SourceTree?.GetRoot()?.FindNode(loc.Location.SourceSpan);
-                    while (node != null &&
-                    !node.IsKind(SyntaxKind.ClassDeclaration) &&
-                    !node.IsKind(SyntaxKind.InterfaceDeclaration) &&
-                    !node.IsKind(SyntaxKind.StructDeclaration))
+                    var node = loc
+                        .Location.SourceTree?.GetRoot()
+                        ?.FindNode(loc.Location.SourceSpan);
+                    while (
+                        node != null
+                        && !node.IsKind(SyntaxKind.ClassDeclaration)
+                        && !node.IsKind(SyntaxKind.InterfaceDeclaration)
+                        && !node.IsKind(SyntaxKind.StructDeclaration)
+                    )
                     {
                         node = node.Parent;
                     }
@@ -104,20 +138,34 @@ namespace DeadCodeRemover
                         continue;
                     }
                     Compilation compilation = await GetProjectCompilation(loc.Document.Project);
-                    ISymbol nodeSymbol = compilation.GetSemanticModel(loc.Location.SourceTree).GetDeclaredSymbol(node);
-                    if (nodeSymbol != null && !SymbolEqualityComparer.Default.Equals(nodeSymbol, type))
+                    ISymbol nodeSymbol = compilation
+                        .GetSemanticModel(loc.Location.SourceTree)
+                        .GetDeclaredSymbol(node);
+                    if (
+                        nodeSymbol != null
+                        && !SymbolEqualityComparer.Default.Equals(nodeSymbol, type)
+                    )
                     {
                         typesUsingMe.Add(nodeSymbol);
-                        _logger.Debug($" Type {type.ContainingNamespace}.{type.Name} is referenced in {loc.Document.FilePath}.");
+                        _logger.Debug(
+                            $" Type {type.ContainingNamespace}.{type.Name} is referenced in {loc.Document.FilePath}."
+                        );
                     }
                 }
             }
             return typesUsingMe;
         }
-        private void FindDeadTypes(IEnumerable<TypeInfo> types, IKnownTypesRepository knownTypes, int depth)
+
+        private void FindDeadTypes(
+            IEnumerable<TypeInfo> types,
+            IKnownTypesRepository knownTypes,
+            int depth
+        )
         {
             IEnumerable<TypeInfo> unknownTypes = types.Where(t => !t.IsDead.HasValue);
-            IEnumerable<TypeInfo> deadTypes = types.Where(t => t.IsDead == true && t.Depth == depth - 1);
+            IEnumerable<TypeInfo> deadTypes = types.Where(t =>
+                t.IsDead == true && t.Depth == depth - 1
+            );
             if (unknownTypes.Count() == 0)
             {
                 return;
@@ -125,7 +173,13 @@ namespace DeadCodeRemover
             bool found = false;
             foreach (var type in unknownTypes)
             {
-                if (type.TypesUsingMe.All(t => deadTypes.Select(dt => dt.Symbol).Contains(t, SymbolEqualityComparer.Default)))
+                if (
+                    type.TypesUsingMe.All(t =>
+                        deadTypes
+                            .Select(dt => dt.Symbol)
+                            .Contains(t, SymbolEqualityComparer.Default)
+                    )
+                )
                 {
                     if (knownTypes.IsKnownType(type.Symbol))
                     {
@@ -136,7 +190,9 @@ namespace DeadCodeRemover
                     else
                     {
                         type.IsDead = true;
-                        type.Depth = type.Node.Parent.IsKind(SyntaxKind.ClassDeclaration) ? -1 : depth;
+                        type.Depth = type.Node.Parent.IsKind(SyntaxKind.ClassDeclaration)
+                            ? -1
+                            : depth;
                         found = true;
                     }
                 }

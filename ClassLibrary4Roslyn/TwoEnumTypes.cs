@@ -9,12 +9,12 @@ namespace ClassLibrary4Roslyn
     internal enum EnumHasReferences
     {
         YES,
-        NO
+        NO,
     }
 
     internal enum EnumHasNoReferences
     {
         REF1,
-        REF2
+        REF2,
     }
 }
